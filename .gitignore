@@ -1,0 +1,21 @@
+Go binary
+/the-autocompletor
+/theautocompleter
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go module cache
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
