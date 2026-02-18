@@ -55,15 +55,22 @@ func parseHelpRecursive(args []string, depth int) (*model.Command, error) {
 
 	lines := strings.Split(output, "\n")
 	cmd.Flags = extractFlags(lines)
-	subNames := extractSubcommands(lines)
+	subEntries := extractSubcommands(lines)
 
-	for _, sub := range subNames {
-		subArgs := append(args, sub)
+	for _, entry := range subEntries {
+		subArgs := append(args, entry.name)
 		subCmd, err := parseHelpRecursive(subArgs, depth+1)
 		if err != nil {
-			// Best effort: add subcommand without flags
-			cmd.Subcommands = append(cmd.Subcommands, &model.Command{Name: sub})
+			// Best effort: keep the description from the parent help output
+			cmd.Subcommands = append(cmd.Subcommands, &model.Command{
+				Name:        entry.name,
+				Description: entry.desc,
+			})
 			continue
+		}
+		// Use description from parent if the recursive call didn't produce one
+		if subCmd.Description == "" {
+			subCmd.Description = entry.desc
 		}
 		cmd.Subcommands = append(cmd.Subcommands, subCmd)
 	}

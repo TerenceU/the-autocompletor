@@ -1,7 +1,7 @@
 BINARY = theautocompletor
 INSTALL_PATH = /usr/local/bin
 
-.PHONY: build install clean
+.PHONY: build install uninstall clean
 
 build:
 	go build -o $(BINARY) .
@@ -16,6 +16,16 @@ install: build
 	else \
 		echo "Skipping 'tac' alias (already used by system)."; \
 	fi
+
+uninstall:
+	@echo "Removing $(BINARY)..."
+	rm -f $(INSTALL_PATH)/$(BINARY)
+	@# Remove tac alias only if it points to our binary
+	@if [ -L $(INSTALL_PATH)/tac ] && [ "$$(readlink $(INSTALL_PATH)/tac)" = "$(INSTALL_PATH)/$(BINARY)" ]; then \
+		rm -f $(INSTALL_PATH)/tac; \
+		echo "Alias 'tac' removed."; \
+	fi
+	@echo "Done."
 
 clean:
 	rm -f $(BINARY)

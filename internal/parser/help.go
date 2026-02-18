@@ -9,11 +9,13 @@ import (
 )
 
 // splitLinePattern splits a help line into "flags part" and "description part"
-// using 2+ spaces or a tab as separator.
-var splitLinePattern = regexp.MustCompile(`^(\s{1,6}-[^\t]+?)(?:\s{2,}|\t)(.+)$`)
+// using 2+ spaces or a tab as separator. Handles up to 12 spaces of leading indent
+// (man pages use 7, --help output typically uses 2-6).
+var splitLinePattern = regexp.MustCompile(`^(\s{1,12}-[^\t]+?)(?:\s{2,}|\t)(.+)$`)
 
 // longFlagPattern extracts long flags from the flags part.
-var longFlagPattern = regexp.MustCompile(`--([a-zA-Z0-9][a-zA-Z0-9\-]*)`)
+// Handles --flag and --[no-]flag (git-style).
+var longFlagPattern = regexp.MustCompile(`--(?:\[no-\])?([a-zA-Z0-9][a-zA-Z0-9\-]*)`)
 
 // shortFlagPattern extracts short flags from the flags part.
 var shortFlagPattern = regexp.MustCompile(`(?:^|[,\s])(-[a-zA-Z0-9])(?:[,\s]|$)`)
@@ -24,12 +26,61 @@ var takesArgPattern = regexp.MustCompile(`(?i)(value|<[^>]+>|\[.*\]|file|path|st
 // subcommandPattern matches lines in COMMANDS/SUBCOMMANDS sections.
 var subcommandPattern = regexp.MustCompile(`^\s{2,4}([a-z][a-zA-Z0-9_\-]+)\s{2,}(.+)$`)
 
+// flagOnlyPattern matches a flag line that has no description on the same line.
+var flagOnlyPattern = regexp.MustCompile(`^\s{1,12}(-[a-zA-Z0-9,\s\-\[\]<>=]+?)$`)
+
+// indentOf returns the number of leading spaces/tabs in a line.
+func indentOf(line string) int {
+	return len(line) - len(strings.TrimLeft(line, " \t"))
+}
+
 // extractFlags parses help output lines and returns all found flags.
+// Handles single-line, man-page style (flag then description on next line),
+// and continuation multi-line descriptions.
 func extractFlags(lines []string) []model.Flag {
 	var flags []model.Flag
 	seen := map[string]bool{}
 
-	for _, line := range lines {
+	// Pass 1: merge flag-only lines with their following description lines,
+	// and join continuation lines that are very deeply indented.
+	joined := make([]string, 0, len(lines))
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+
+		// If previous line was written to joined and this looks like a deep continuation
+		if len(joined) > 0 &&
+			len(line) > 20 &&
+			strings.HasPrefix(line, "                    ") { // 20+ spaces
+			joined[len(joined)-1] += " " + strings.TrimSpace(line)
+			continue
+		}
+
+		// Check if this is a flag-only line (flag pattern but no inline description)
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" &&
+			strings.HasPrefix(trimmed, "-") &&
+			splitLinePattern.FindStringSubmatch(line) == nil {
+			// Look ahead for a description line
+			if i+1 < len(lines) {
+				next := lines[i+1]
+				nextTrimmed := strings.TrimSpace(next)
+				nextIndent := indentOf(next)
+				curIndent := indentOf(line)
+				if nextTrimmed != "" &&
+					!strings.HasPrefix(nextTrimmed, "-") &&
+					nextIndent > curIndent {
+					// Merge: flag + description from next line
+					joined = append(joined, strings.TrimRight(line, " \t")+"    "+nextTrimmed)
+					i++ // skip next line (already consumed)
+					continue
+				}
+			}
+		}
+
+		joined = append(joined, line)
+	}
+
+	for _, line := range joined {
 		// Must start with whitespace followed by a dash (flag line)
 		if !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
 			continue
@@ -43,7 +94,6 @@ func extractFlags(lines []string) []model.Flag {
 		flagsPart := m[1]
 		desc := strings.TrimSpace(m[2])
 
-		// Skip if flagsPart doesn't contain a dash
 		if !strings.Contains(flagsPart, "-") {
 			continue
 		}
@@ -55,7 +105,6 @@ func extractFlags(lines []string) []model.Flag {
 			continue
 		}
 
-		// Use the first long flag as the key
 		long := ""
 		if len(longs) > 0 {
 			long = "--" + longs[0][1]
@@ -85,10 +134,16 @@ func extractFlags(lines []string) []model.Flag {
 	return flags
 }
 
-// extractSubcommands finds subcommand names from help output.
+// subEntry holds a subcommand name and its description from the help output.
+type subEntry struct {
+	name string
+	desc string
+}
+
+// extractSubcommands finds subcommand names and descriptions from help output.
 // Handles both explicit COMMANDS: sections and git-style unlabelled lists.
-func extractSubcommands(lines []string) []string {
-	var subs []string
+func extractSubcommands(lines []string) []subEntry {
+	var subs []subEntry
 	seen := map[string]bool{}
 	inCommandsSection := false
 
@@ -99,7 +154,6 @@ func extractSubcommands(lines []string) []string {
 			inCommandsSection = true
 			continue
 		}
-		// A non-indented non-empty line that isn't a header resets the section
 		if inCommandsSection && line != "" && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
 			inCommandsSection = false
 		}
@@ -111,7 +165,7 @@ func extractSubcommands(lines []string) []string {
 					continue
 				}
 				seen[name] = true
-				subs = append(subs, name)
+				subs = append(subs, subEntry{name: name, desc: strings.TrimSpace(m[2])})
 			}
 		}
 	}
