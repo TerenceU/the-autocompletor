@@ -1,9 +1,12 @@
 package parser
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/terencetachiona/the-autocompletor/internal/model"
 )
@@ -68,15 +71,27 @@ func parseHelpRecursive(args []string, depth int) (*model.Command, error) {
 	return cmd, nil
 }
 
-// runHelp executes <args> --help, falling back to -h.
+// runHelp executes <args> --help, falling back to -h, with a timeout and pager disabled.
 func runHelp(args ...string) (string, error) {
 	for _, flag := range []string{"--help", "-h"} {
 		cmdArgs := append(args[1:], flag)
-		out, err := exec.Command(args[0], cmdArgs...).CombinedOutput()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		cmd := exec.CommandContext(ctx, args[0], cmdArgs...)
+		// Disable pagers so programs like git don't block waiting for interaction
+		cmd.Env = append(os.Environ(),
+			"PAGER=cat",
+			"GIT_PAGER=cat",
+			"MANPAGER=cat",
+			"TERM=dumb",
+			"GIT_TERMINAL_PROMPT=0",
+		)
+		out, _ := cmd.CombinedOutput()
+		cancel()
+
 		if len(out) > 0 {
 			return string(out), nil
 		}
-		_ = err
 	}
 	return "", fmt.Errorf("no help output for %q", strings.Join(args, " "))
 }

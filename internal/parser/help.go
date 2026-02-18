@@ -86,6 +86,7 @@ func extractFlags(lines []string) []model.Flag {
 }
 
 // extractSubcommands finds subcommand names from help output.
+// Handles both explicit COMMANDS: sections and git-style unlabelled lists.
 func extractSubcommands(lines []string) []string {
 	var subs []string
 	seen := map[string]bool{}
@@ -98,12 +99,12 @@ func extractSubcommands(lines []string) []string {
 			inCommandsSection = true
 			continue
 		}
-		if inCommandsSection && line == "" {
+		// A non-indented non-empty line that isn't a header resets the section
+		if inCommandsSection && line != "" && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
 			inCommandsSection = false
-			continue
 		}
 
-		if inCommandsSection {
+		if inCommandsSection || looksLikeSubcommandLine(line) {
 			if m := subcommandPattern.FindStringSubmatch(line); m != nil {
 				name := m[1]
 				if isReservedWord(name) || seen[name] {
@@ -116,6 +117,12 @@ func extractSubcommands(lines []string) []string {
 	}
 
 	return subs
+}
+
+// looksLikeSubcommandLine returns true for lines with 3-4 spaces indent,
+// a short lowercase word, then 2+ spaces and a description (git-style).
+func looksLikeSubcommandLine(line string) bool {
+	return subcommandPattern.MatchString(line)
 }
 
 func isOptionsHeader(s string) bool {
