@@ -2,6 +2,10 @@
 
 Generate shell completion scripts for any CLI program — automatically.
 
+> 🤖 **This project was built with AI assistance (GitHub Copilot).** It's an experiment in AI-driven development — the code, architecture, and docs were all shaped through a conversation between a human and an AI pair programmer.
+>
+> **Contributions of any kind are very welcome** — bug reports, new shell support, better parsing heuristics, docs, tests, anything. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+
 ## How it works
 
 1. Tries the **man page** first
