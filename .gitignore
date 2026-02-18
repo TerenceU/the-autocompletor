@@ -1,6 +1,6 @@
 Go binary
 /the-autocompletor
-/theautocompleter
+/theautocompletor
 
 # Go build artifacts
 *.exe

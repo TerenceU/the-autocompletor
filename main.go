@@ -23,19 +23,19 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "theautocompleter <program>",
+	Use:   "theautocompletor <program>",
 	Short: "Generate shell completions for any CLI program",
-	Long: `theautocompleter generates shell completion scripts by analyzing a program's
+	Long: `theautocompletor generates shell completion scripts by analyzing a program's
 man page, --help output, and subcommands recursively.
 
 If the program cannot be analyzed, an AI fallback (Ollama or OpenAI) can be used.
 
 Examples:
-  theautocompleter gobuster
-  theautocompleter gobuster --install
-  theautocompleter gobuster --shell fish --install
-  theautocompleter gobuster --ai ollama
-  theautocompleter gobuster --ai openai --api-key sk-...`,
+  theautocompletor gobuster
+  theautocompletor gobuster --install
+  theautocompletor gobuster --shell fish --install
+  theautocompletor gobuster --ai ollama
+  theautocompletor gobuster --ai openai --api-key sk-...`,
 	Args:              cobra.ExactArgs(1),
 	RunE:              run,
 	SilenceUsage:      true,

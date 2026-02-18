@@ -1,4 +1,4 @@
-# theautocompleter
+# theautocompletor
 
 Generate shell completion scripts for any CLI program — automatically.
 
@@ -12,17 +12,17 @@ Generate shell completion scripts for any CLI program — automatically.
 ## Usage
 
 ```bash
-theautocompleter <program> [flags]
+theautocompletor <program> [flags]
 ```
 
 | Example | Description |
 |---------|-------------|
-| `theautocompleter gobuster` | Auto-detect shell, print to stdout |
-| `theautocompleter gobuster --install` | Auto-detect shell, install to shell dir |
-| `theautocompleter gobuster --shell fish` | Force fish output |
-| `theautocompleter gobuster --shell fish --install` | Force fish and install |
-| `theautocompleter gobuster --ai ollama` | Use local Ollama as fallback |
-| `theautocompleter gobuster --ai openai --api-key sk-...` | Use OpenAI as fallback |
+| `theautocompletor gobuster` | Auto-detect shell, print to stdout |
+| `theautocompletor gobuster --install` | Auto-detect shell, install to shell dir |
+| `theautocompletor gobuster --shell fish` | Force fish output |
+| `theautocompletor gobuster --shell fish --install` | Force fish and install |
+| `theautocompletor gobuster --ai ollama` | Use local Ollama as fallback |
+| `theautocompletor gobuster --ai openai --api-key sk-...` | Use OpenAI as fallback |
 
 > **Alias `tac`**: if the system `tac` command is not present, you can also use `tac <program>` as a shorter alias.
 

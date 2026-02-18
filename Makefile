@@ -1,4 +1,4 @@
-BINARY = theautocompleter
+BINARY = theautocompletor
 INSTALL_PATH = /usr/local/bin
 
 .PHONY: build install clean
