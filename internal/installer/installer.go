@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/terencetachiona/the-autocompletor/internal/shell"
+	"github.com/TerenceU/the-autocompletor/internal/shell"
 )
 
 // completionsFileName returns the correct filename for the given shell.

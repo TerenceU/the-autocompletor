@@ -6,12 +6,12 @@ import (
 	"os/exec"
 
 	"github.com/spf13/cobra"
-	"github.com/terencetachiona/the-autocompletor/internal/ai"
-	"github.com/terencetachiona/the-autocompletor/internal/generator"
-	"github.com/terencetachiona/the-autocompletor/internal/installer"
-	"github.com/terencetachiona/the-autocompletor/internal/model"
-	"github.com/terencetachiona/the-autocompletor/internal/parser"
-	"github.com/terencetachiona/the-autocompletor/internal/shell"
+	"github.com/TerenceU/the-autocompletor/internal/ai"
+	"github.com/TerenceU/the-autocompletor/internal/generator"
+	"github.com/TerenceU/the-autocompletor/internal/installer"
+	"github.com/TerenceU/the-autocompletor/internal/model"
+	"github.com/TerenceU/the-autocompletor/internal/parser"
+	"github.com/TerenceU/the-autocompletor/internal/shell"
 )
 
 var (

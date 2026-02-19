@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/terencetachiona/the-autocompletor/internal/model"
+	"github.com/TerenceU/the-autocompletor/internal/model"
 )
 
 // Fish generates a fish completion script for the given command tree.

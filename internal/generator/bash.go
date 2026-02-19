@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/terencetachiona/the-autocompletor/internal/model"
+	"github.com/TerenceU/the-autocompletor/internal/model"
 )
 
 // Bash generates a bash completion script for the given command tree.

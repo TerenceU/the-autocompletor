@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/terencetachiona/the-autocompletor/internal/model"
-	"github.com/terencetachiona/the-autocompletor/internal/shell"
+	"github.com/TerenceU/the-autocompletor/internal/model"
+	"github.com/TerenceU/the-autocompletor/internal/shell"
 )
 
 const defaultOllamaURL = "http://localhost:11434"

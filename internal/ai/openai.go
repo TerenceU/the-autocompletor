@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/terencetachiona/the-autocompletor/internal/model"
-	"github.com/terencetachiona/the-autocompletor/internal/shell"
+	"github.com/TerenceU/the-autocompletor/internal/model"
+	"github.com/TerenceU/the-autocompletor/internal/shell"
 )
 
 const openAIURL = "https://api.openai.com/v1/chat/completions"

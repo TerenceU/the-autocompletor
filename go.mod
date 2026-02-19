@@ -1,4 +1,4 @@
-module github.com/terencetachiona/the-autocompletor
+module github.com/TerenceU/the-autocompletor
 
 go 1.25.7
 

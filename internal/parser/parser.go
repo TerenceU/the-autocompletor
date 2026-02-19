@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/terencetachiona/the-autocompletor/internal/model"
+	"github.com/TerenceU/the-autocompletor/internal/model"
 )
 
 const maxDepth = 3

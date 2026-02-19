@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/terencetachiona/the-autocompletor/internal/model"
+	"github.com/TerenceU/the-autocompletor/internal/model"
 )
 
 // splitLinePattern splits a help line into "flags part" and "description part"
