@@ -38,7 +38,6 @@ Examples:
   theautocompletor gobuster --ai openai --api-key sk-...`,
 	Args:              cobra.ExactArgs(1),
 	RunE:              run,
-	SilenceUsage:      true,
 	SilenceErrors:     true,
 }
 
