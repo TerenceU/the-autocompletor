@@ -55,3 +55,9 @@ make install
 | `--ai` | AI fallback: `ollama` or `openai` |
 | `--api-key` | OpenAI API key (or set `OPENAI_API_KEY` env var) |
 | `--model` | AI model override |
+
+## Support
+
+If you find this useful, consider buying me a coffee ☕
+
+[![Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/terenceusai)
