@@ -20,10 +20,21 @@ func Parse(program string) (*model.Command, error) {
 	// Try man page first
 	manCmd, err := parseManPage(program)
 	if err == nil && manCmd != nil && len(manCmd.Flags) > 0 {
-		// Still run help parser to discover subcommands not in man page
+		// Merge subcommands from --help (may add flags to existing entries)
 		helpCmd, herr := ParseHelp(program)
 		if herr == nil {
 			mergeSubcommands(manCmd, helpCmd)
+		}
+		// For subcommands discovered only via man page (no flags yet), try --help
+		for _, sub := range manCmd.Subcommands {
+			if len(sub.Flags) == 0 {
+				if subHelp, serr := ParseHelp(program, sub.Name); serr == nil {
+					sub.Flags = subHelp.Flags
+					if sub.Description == "" {
+						sub.Description = subHelp.Description
+					}
+				}
+			}
 		}
 		return manCmd, nil
 	}
@@ -55,7 +66,7 @@ func parseHelpRecursive(args []string, depth int) (*model.Command, error) {
 
 	lines := strings.Split(output, "\n")
 	cmd.Flags = extractFlags(lines)
-	subEntries := extractSubcommands(lines)
+	subEntries := extractSubcommands(lines, false) // strict=false: use heuristic detection for --help output
 
 	for _, entry := range subEntries {
 		subArgs := append(args, entry.name)
