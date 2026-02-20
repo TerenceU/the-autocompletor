@@ -82,7 +82,7 @@ Target shell: %s`, program, program, sh)
 func parseAIResponse(program, response string) *model.Command {
 	cmd := &model.Command{Name: program}
 
-	for _, line := range strings.Split(response, "\n") {
+	for line := range strings.SplitSeq(response, "\n") {
 		line = strings.TrimSpace(line)
 		parts := strings.Split(line, "|")
 
