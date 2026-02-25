@@ -30,6 +30,9 @@ man page, --help output, and subcommands recursively.
 
 If the program cannot be analyzed, an AI fallback (Ollama or OpenAI) can be used.
 
+If you want autocompletions for this program try:
+  theautocompletor theautocompletor --install 
+
 Examples:
   theautocompletor gobuster
   theautocompletor gobuster --install
