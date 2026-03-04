@@ -13,21 +13,36 @@ import (
 
 const maxDepth = 3
 
+// ProgressFunc is called whenever the parser starts processing a command.
+// Callers can use it to display progress (e.g. print to stderr).
+type ProgressFunc func(msg string)
+
 // Parse builds a Command tree for the given program by trying:
 // 1. man page
 // 2. --help output + recursive subcommand discovery
 func Parse(program string) (*model.Command, error) {
-	// Try man page first
+	return ParseWithProgress(program, nil)
+}
+
+// ParseWithProgress is like Parse but calls progress for each step.
+func ParseWithProgress(program string, progress ProgressFunc) (*model.Command, error) {
+	notify := func(msg string) {
+		if progress != nil {
+			progress(msg)
+		}
+	}
+
+	notify(fmt.Sprintf("reading man page for %q", program))
 	manCmd, err := parseManPage(program)
 	if err == nil && manCmd != nil && len(manCmd.Flags) > 0 {
-		// Merge subcommands from --help (may add flags to existing entries)
+		notify(fmt.Sprintf("reading --help for %q", program))
 		helpCmd, herr := ParseHelp(program)
 		if herr == nil {
 			mergeSubcommands(manCmd, helpCmd)
 		}
-		// For subcommands discovered only via man page (no flags yet), try --help
 		for _, sub := range manCmd.Subcommands {
 			if len(sub.Flags) == 0 {
+				notify(fmt.Sprintf("reading --help for %q %q", program, sub.Name))
 				if subHelp, serr := ParseHelp(program, sub.Name); serr == nil {
 					sub.Flags = subHelp.Flags
 					if sub.Description == "" {
@@ -39,24 +54,38 @@ func Parse(program string) (*model.Command, error) {
 		return manCmd, nil
 	}
 
-	// Fallback to --help
-	return ParseHelp(program)
+	notify(fmt.Sprintf("reading --help for %q", program))
+	return parseHelpRecursive([]string{program}, 0, "", notify)
 }
 
 // ParseHelp parses --help output for the given command path and recurses into subcommands.
 func ParseHelp(args ...string) (*model.Command, error) {
-	return parseHelpRecursive(args, 0)
+	return parseHelpRecursive(args, 0, "", nil)
 }
 
-func parseHelpRecursive(args []string, depth int) (*model.Command, error) {
+// parseHelpRecursive recurses into subcommands.
+// parentOutput is the help output of the parent call; if a child returns the
+// same output we stop recursing (the program doesn't support per-subcommand help).
+func parseHelpRecursive(args []string, depth int, parentOutput string, progress ProgressFunc) (*model.Command, error) {
 	if depth > maxDepth {
 		return nil, fmt.Errorf("max depth reached")
+	}
+
+	if progress != nil {
+		progress(fmt.Sprintf("reading --help for %q", strings.Join(args, " ")))
 	}
 
 	program := args[0]
 	output, err := runHelp(args...)
 	if err != nil {
 		return nil, fmt.Errorf("could not get help for %q: %w", strings.Join(args, " "), err)
+	}
+
+	// If the output is identical to the parent's, this program doesn't have
+	// per-subcommand help — stop recursing to avoid combinatorial explosion.
+	if parentOutput != "" && normalizeHelp(output) == normalizeHelp(parentOutput) {
+		cmd := &model.Command{Name: args[len(args)-1]}
+		return cmd, nil
 	}
 
 	cmd := &model.Command{Name: program}
@@ -66,27 +95,61 @@ func parseHelpRecursive(args []string, depth int) (*model.Command, error) {
 
 	lines := strings.Split(output, "\n")
 	cmd.Flags = extractFlags(lines)
-	subEntries := extractSubcommands(lines, false) // strict=false: use heuristic detection for --help output
+	subEntries := extractSubcommands(lines, false)
 
-	for _, entry := range subEntries {
-		subArgs := append(args, entry.name)
-		subCmd, err := parseHelpRecursive(subArgs, depth+1)
-		if err != nil {
-			// Best effort: keep the description from the parent help output
+	if len(subEntries) == 0 {
+		return cmd, nil
+	}
+
+	// Resolve subcommands in parallel (bounded to 6 workers).
+	type result struct {
+		index int
+		cmd   *model.Command
+		err   error
+	}
+
+	results := make([]result, len(subEntries))
+	sem := make(chan struct{}, 6)
+	done := make(chan result, len(subEntries))
+
+	for i, entry := range subEntries {
+		i, entry := i, entry
+		sem <- struct{}{}
+		go func() {
+			defer func() { <-sem }()
+			subArgs := append(append([]string{}, args...), entry.name)
+			subCmd, serr := parseHelpRecursive(subArgs, depth+1, output, progress)
+			done <- result{index: i, cmd: subCmd, err: serr}
+		}()
+	}
+
+	for range subEntries {
+		r := <-done
+		results[r.index] = r
+	}
+
+	// Assemble in original order
+	for i, entry := range subEntries {
+		r := results[i]
+		if r.err != nil {
 			cmd.Subcommands = append(cmd.Subcommands, &model.Command{
 				Name:        entry.name,
 				Description: entry.desc,
 			})
 			continue
 		}
-		// Use description from parent if the recursive call didn't produce one
-		if subCmd.Description == "" {
-			subCmd.Description = entry.desc
+		if r.cmd.Description == "" {
+			r.cmd.Description = entry.desc
 		}
-		cmd.Subcommands = append(cmd.Subcommands, subCmd)
+		cmd.Subcommands = append(cmd.Subcommands, r.cmd)
 	}
 
 	return cmd, nil
+}
+
+// normalizeHelp strips leading/trailing whitespace for comparison.
+func normalizeHelp(s string) string {
+	return strings.TrimSpace(s)
 }
 
 // runHelp executes <args> --help, falling back to -h, with a timeout and pager disabled.

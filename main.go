@@ -69,8 +69,11 @@ func run(cmd *cobra.Command, args []string) error {
 
 	fmt.Fprintf(os.Stderr, "→ Generating %s completions for %q\n", sh, program)
 
-	// Build command tree
-	cmdTree, parseErr := parser.Parse(program)
+	// Build command tree with live progress on stderr
+	progress := func(msg string) {
+		fmt.Fprintf(os.Stderr, "  ⟳  %s\n", msg)
+	}
+	cmdTree, parseErr := parser.ParseWithProgress(program, progress)
 	if parseErr != nil || (len(cmdTree.Flags) == 0 && len(cmdTree.Subcommands) == 0) {
 		if flagAI == "" {
 			return fmt.Errorf(
