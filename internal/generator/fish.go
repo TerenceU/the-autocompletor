@@ -44,16 +44,25 @@ func Fish(cmd *model.Command) string {
 			b.WriteString("\n")
 		}
 	} else {
-		// Positional argument hints (shown before any flags are typed)
+		// Positional argument hints: show label+description in TAB menu without inserting text.
+		// The helper function returns (commandline -ct) as completion value so selecting it
+		// is a no-op; the tab-separated description shows "NAME — desc" in the menu.
 		if len(cmd.Args) > 0 {
+			helperName := fmt.Sprintf("__theautocompletor_%s_pos_hint", cmd.Name)
+			fmt.Fprintf(&b, "function %s\n", helperName)
+			b.WriteString("    printf '%s\\t%s\\n' (commandline -ct) $argv[1]\n")
+			b.WriteString("end\n\n")
+
 			b.WriteString("# Positional argument hints\n")
 			for i, arg := range cmd.Args {
 				label := strings.ToUpper(strings.ReplaceAll(arg.Name, "-", "_"))
-				desc := escapeFish(arg.Description)
-				// count (commandline -opc) returns N+1 when typing the Nth positional arg
+				hint := label
+				if arg.Description != "" {
+					hint = label + " — " + escapeFish(arg.Description)
+				}
 				fmt.Fprintf(&b,
-					"complete -c %s -n 'test (count (commandline -opc)) -eq %d' -f -a %s -d %q\n",
-					cmd.Name, i+1, label, desc)
+					"complete -c %s -n 'test (count (commandline -opc)) -eq %d' -f -a '(%s %q)'\n",
+					cmd.Name, i+1, helperName, hint)
 			}
 			b.WriteString("\n")
 		}
