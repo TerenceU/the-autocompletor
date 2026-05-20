@@ -273,7 +273,7 @@ func isReservedWord(s string) bool {
 	return reserved[s]
 }
 
-// parseManPage runs man and returns a Command with flags and subcommands parsed from the man page.
+// parseManPage runs man and returns a Command with flags, subcommands, and positional args.
 func parseManPage(program string) (*model.Command, error) {
 	out, err := exec.Command("sh", "-c", "man "+program+" 2>/dev/null | col -bx").Output()
 	if err != nil || len(out) == 0 {
@@ -283,12 +283,169 @@ func parseManPage(program string) (*model.Command, error) {
 	lines := strings.Split(string(out), "\n")
 	cmd := &model.Command{Name: program}
 	cmd.Flags = extractFlags(lines)
-	for _, e := range extractSubcommands(lines, true) { // strict=true: man pages only trust explicit sections
+	for _, e := range extractSubcommands(lines, true) {
 		cmd.Subcommands = append(cmd.Subcommands, &model.Command{
 			Name:        e.name,
 			Description: e.desc,
 		})
 	}
+	cmd.Args = extractPositionalArgs(lines, program)
 	return cmd, nil
+}
+
+// synopsisArgPattern matches positional arguments in SYNOPSIS lines.
+// Matches both required <arg-name> and optional [<arg-name>] or [arg-name].
+var synopsisArgPattern = regexp.MustCompile(`(\[?)<([a-zA-Z][a-zA-Z0-9_\- ]+)>(\]?)`)
+
+// extractPositionalArgs parses the SYNOPSIS section to find positional arguments,
+// then looks up their descriptions in the DESCRIPTION section.
+func extractPositionalArgs(lines []string, program string) []model.Arg {
+	// Step 1: find SYNOPSIS and collect the positional arg names in order.
+	inSynopsis := false
+	synopsisLines := []string{}
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		upper := strings.ToUpper(trimmed)
+		if upper == "SYNOPSIS" {
+			inSynopsis = true
+			continue
+		}
+		// Next all-uppercase section header ends synopsis
+		if inSynopsis && trimmed != "" && upper == trimmed && len(trimmed) > 2 {
+			break
+		}
+		if inSynopsis {
+			synopsisLines = append(synopsisLines, line)
+		}
+	}
+
+	if len(synopsisLines) == 0 {
+		return nil
+	}
+
+	// Join wrapped synopsis lines into one string
+	synopsis := strings.Join(synopsisLines, " ")
+
+	// Remove the program name from the start
+	if idx := strings.Index(synopsis, program); idx != -1 {
+		synopsis = synopsis[idx+len(program):]
+	}
+
+	// Extract all positional arg tokens in order (skip flags -x / --xxx)
+	type rawArg struct {
+		name     string
+		optional bool
+	}
+	var rawArgs []rawArg
+	seen := map[string]bool{}
+
+	matches := synopsisArgPattern.FindAllStringSubmatch(synopsis, -1)
+	for _, m := range matches {
+		// Normalize spaces/hyphens in name: "charset string" → "charset-string"
+		rawName := strings.TrimSpace(m[2])
+		name := strings.ToLower(strings.ReplaceAll(rawName, " ", "-"))
+		optional := m[1] == "[" || m[3] == "]"
+		if seen[name] {
+			continue
+		}
+		// Skip common meta-placeholders that aren't real positional args
+		if name == "args" || name == "options" || name == "command" || name == "cmd" {
+			continue
+		}
+		seen[name] = true
+		rawArgs = append(rawArgs, rawArg{name: name, optional: optional})
+	}
+
+	if len(rawArgs) == 0 {
+		return nil
+	}
+
+	// Step 2: build a description map from the DESCRIPTION section.
+	// Pattern: a line with just "arg-name" (possibly indented) followed by an indented description.
+	descMap := extractArgDescriptions(lines, seen)
+
+	// Step 3: assemble
+	var args []model.Arg
+	for _, r := range rawArgs {
+		desc := descMap[r.name]
+		if desc == "" {
+			desc = r.name
+		}
+		args = append(args, model.Arg{
+			Name:        r.name,
+			Description: desc,
+			Optional:    r.optional,
+		})
+	}
+	return args
+}
+
+// extractArgDescriptions scans the DESCRIPTION section for entries of the form:
+//
+//	arg-name
+//	       Description text here.
+//
+// Returns a map from lowercased name → first sentence of description.
+func extractArgDescriptions(lines []string, names map[string]bool) map[string]string {
+	result := map[string]string{}
+	inDescription := false
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		upper := strings.ToUpper(trimmed)
+
+		if upper == "DESCRIPTION" {
+			inDescription = true
+			continue
+		}
+		if inDescription && trimmed != "" && upper == trimmed && len(trimmed) > 2 {
+			break // next section
+		}
+		if !inDescription {
+			continue
+		}
+
+		// Look for a line that is just an arg name (indented 4-8 spaces, no special chars)
+		lineIndent := indentOf(line)
+		if lineIndent < 4 || lineIndent > 8 {
+			continue
+		}
+		candidate := strings.ToLower(strings.ReplaceAll(trimmed, " ", "-"))
+		if !names[candidate] && !names[strings.ReplaceAll(trimmed, " ", "-")] {
+			continue
+		}
+
+		// Gather description from subsequent more-indented lines
+		var descParts []string
+		for j := i + 1; j < len(lines) && j < i+8; j++ {
+			next := lines[j]
+			nextTrimmed := strings.TrimSpace(next)
+			if nextTrimmed == "" {
+				break
+			}
+			if indentOf(next) <= lineIndent {
+				break
+			}
+			descParts = append(descParts, nextTrimmed)
+		}
+
+		if len(descParts) > 0 {
+			full := strings.Join(descParts, " ")
+			// Collapse multiple spaces from man page formatting
+			full = regexp.MustCompile(`\s{2,}`).ReplaceAllString(full, " ")
+			// Trim to first sentence for brevity
+			if idx := strings.Index(full, ".  "); idx != -1 {
+				full = full[:idx+1]
+			} else if idx := strings.Index(full, ". "); idx != -1 {
+				full = full[:idx+1]
+			}
+			key := strings.ToLower(strings.ReplaceAll(trimmed, " ", "-"))
+			if result[key] == "" {
+				result[key] = full
+			}
+		}
+	}
+	return result
 }
 

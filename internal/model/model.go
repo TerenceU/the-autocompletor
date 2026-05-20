@@ -9,10 +9,18 @@ type Flag struct {
 	TakesArg    bool // true if the flag requires a value
 }
 
+// Arg represents a positional argument with its metadata.
+type Arg struct {
+	Name        string // e.g. "min-len"
+	Description string // e.g. "Minimum length of generated strings (integer)"
+	Optional    bool   // true if wrapped in [...] in SYNOPSIS
+}
+
 // Command represents a CLI command (root or subcommand) and its tree.
 type Command struct {
 	Name        string
 	Description string
 	Flags       []Flag
+	Args        []Arg // positional arguments in order
 	Subcommands []*Command
 }

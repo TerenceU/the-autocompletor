@@ -19,7 +19,7 @@ func Fish(cmd *model.Command) string {
 		for _, sub := range cmd.Subcommands {
 			desc := escapeFish(sub.Description)
 			fmt.Fprintf(&b, "complete -c %s -f -n __fish_use_subcommand -a %s -d %q\n",
-	cmd.Name, sub.Name, desc)
+				cmd.Name, sub.Name, desc)
 		}
 		b.WriteString("\n")
 
@@ -44,7 +44,21 @@ func Fish(cmd *model.Command) string {
 			b.WriteString("\n")
 		}
 	} else {
-		// No subcommands: flat flags
+		// Positional argument hints (shown before any flags are typed)
+		if len(cmd.Args) > 0 {
+			b.WriteString("# Positional argument hints\n")
+			for i, arg := range cmd.Args {
+				label := strings.ToUpper(strings.ReplaceAll(arg.Name, "-", "_"))
+				desc := escapeFish(arg.Description)
+				// Use __fish_number_of_arguments to show hint at the right position
+				fmt.Fprintf(&b,
+					"complete -c %s -n '__fish_number_of_arguments %d' -f -a %s -d %q\n",
+					cmd.Name, i, label, desc)
+			}
+			b.WriteString("\n")
+		}
+
+		// Flat flags
 		for _, f := range cmd.Flags {
 			b.WriteString(fishFlag(cmd.Name, "", f))
 		}
