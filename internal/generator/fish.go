@@ -50,10 +50,10 @@ func Fish(cmd *model.Command) string {
 			for i, arg := range cmd.Args {
 				label := strings.ToUpper(strings.ReplaceAll(arg.Name, "-", "_"))
 				desc := escapeFish(arg.Description)
-				// Use __fish_number_of_arguments to show hint at the right position
+				// count (commandline -opc) returns N+1 when typing the Nth positional arg
 				fmt.Fprintf(&b,
-					"complete -c %s -n '__fish_number_of_arguments %d' -f -a %s -d %q\n",
-					cmd.Name, i, label, desc)
+					"complete -c %s -n 'test (count (commandline -opc)) -eq %d' -f -a %s -d %q\n",
+					cmd.Name, i+1, label, desc)
 			}
 			b.WriteString("\n")
 		}
